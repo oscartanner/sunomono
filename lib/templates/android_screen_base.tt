@@ -16,6 +16,10 @@ class AndroidScreenBase < Calabash::ABase
     start_test_server_in_background
   end
 
+  def touch_back_button
+    press_back_button
+  end
+
   def method_missing(method, *args)
     if method.to_s.start_with?('touch_')
       # If method name starts with touch_, executes the touch
@@ -41,15 +45,19 @@ class AndroidScreenBase < Calabash::ABase
                          .capitalize
       raise ElementNotFoundError, "ID: #{field_name}" unless
         visible? public_send(method.to_s.sub('_visible!', ''))
+    elsif method.to_s.end_with?('erase_')
+      # If method name starts with erase_, executes the erase method
+      # that will clear all chars from this text field
+      erase_field public_send(method.to_s.sub('erase_', ''))
     else
       super(method, args)
     end
   end
 
-  def visible?(id, query = nil)
+  def visible?(id, query = nil, timeout = 3)
     query = "* id:'#{id}'" if query.nil?
     begin
-      wait_for(timeout: 3) { element_exists query }
+      wait_for(timeout: timeout) { element_exists query }
     rescue
       return false
     end
@@ -120,6 +128,25 @@ class AndroidScreenBase < Calabash::ABase
     end
   end
 
+  # Drags until page do not change (top or bottom of the screen)
+  # Position can be :up or :down
+  def drag_until_no_change(position)
+    last_page = nil
+    while page != last_page
+      sleep 1
+      last_page = page
+      drag_to position
+    end
+  end
+
+  def drag_to_bottom
+    drag_until_no_change :down
+  end
+
+  def drag_to_top
+    drag_until_no_change :up
+  end
+
   # Negation indicates that we want a page that doesn't
   # has the message passed as parameter
   def is_on_page?(page_text, negation = '')
@@ -167,10 +194,6 @@ class AndroidScreenBase < Calabash::ABase
   def touch_element_by_index(id, index)
     wait_for(timeout: 5) { element_exists("* id:'#{id}' index:#{index}") }
     touch("* id:'#{id}' index:#{index}")
-  end
-
-  def clear_text_field(field)
-    clear_text_in("android.widget.EditText id:'#{field}'}")
   end
 
   def select_date_on_date_picker(date, date_picker_field_id)
